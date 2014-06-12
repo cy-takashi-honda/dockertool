@@ -1,0 +1,60 @@
+#!/usr/bin/env perl
+
+sub main {
+
+  # 配列の要素数は$#の後に + 1
+  # $#では最後の配列の要素番号が取れる
+
+  my $argLength = ($#ARGV + 1);
+  if ($argLength != 1) {
+    print "use ip rm rmi stop\n";
+    return;
+  }
+
+  my $arg = $ARGV[0];
+
+  if ($arg eq 'ip') {
+    @containerInfo = &getContainerInfo(0);
+  } elsif ($arg eq 'rm') {
+    @containerInfo = &getContainerInfo(1);
+  } elsif ($arg eq 'rmi') {
+    system('docker rmi -f $(docker images | awk "/^<none>/ { print $3 }")');
+    return;
+  } elsif ($arg eq 'stop') {
+    @containerInfo = &getContainerInfo(1);
+  }
+
+
+  foreach my $row (@containerInfo) {
+    my @arr   = split(/\s{2,}/, $row);
+    my $id    = @arr[0];
+    my $tag   = @arr[1];
+    my $state = @arr[4];
+
+    if ($arg eq 'ip') {
+      my $ipAddr = `docker inspect --format="{{ .NetworkSettings.IPAddress }}" $id`;
+      print $id . ', ' . $tag . ', ' . $ipAddr;
+    } elsif ($arg eq 'rm') {
+      if ($state =~ /^Exited.+/) {
+        `docker rm $id`;
+      }
+    } elsif ($arg eq 'stop') {
+      if ($state =~ /^Up.+/) {
+        `docker stop $id`;
+      }
+    }
+  }
+}
+
+sub getContainerInfo {
+  my $isDetail = @_[0];
+
+  if ($isDetail == 1) {
+    @ret = `docker ps -a | sed -e '1d'`;
+  } else {
+    @ret = `docker ps | sed -e '1d'`;
+  }
+  return @ret;
+}
+
+&main;
